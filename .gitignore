@@ -8,3 +8,4 @@ build/
 ios/Pods/
 android/.gradle/
 # google-services.json and GoogleService-Info.plist are intentionally included
+.claude/
