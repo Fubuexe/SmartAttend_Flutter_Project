@@ -128,4 +128,107 @@ class FirestoreService {
           return list;
         });
   }
+
+  // ─── Student-side queries ──────────────────────────────────────────────────
+
+  /// All StudentModel docs for a given registration number.
+  /// A student may appear in multiple classes → multiple docs.
+  Stream<List<StudentModel>> enrollmentsByRegNumber(String regNumber) => _db
+      .collection('students')
+      .where('registrationNumber', isEqualTo: regNumber)
+      .snapshots()
+      .map((s) => s.docs.map(StudentModel.fromDoc).toList());
+
+  /// Fetch a single class by its ID.
+  Future<ClassModel?> classById(String classId) async {
+    final doc = await _db.collection('classes').doc(classId).get();
+    if (!doc.exists) return null;
+    return ClassModel.fromDoc(doc);
+  }
+
+  /// Full attendance history for a student across all their enrolled classes.
+  /// Returns a list of maps with keys: session, record, className, classCode.
+  /// Sorted newest-first.
+  Future<List<Map<String, dynamic>>> studentAttendanceHistory(
+      String regNumber) async {
+    // 1. Find all StudentModel entries for this reg number.
+    final enrollSnap = await _db
+        .collection('students')
+        .where('registrationNumber', isEqualTo: regNumber)
+        .get();
+    if (enrollSnap.docs.isEmpty) return [];
+
+    final enrollments = enrollSnap.docs.map(StudentModel.fromDoc).toList();
+
+    // 2. Fetch class details for each enrollment.
+    final classDocs = await Future.wait(
+      enrollments.map((e) => _db.collection('classes').doc(e.classId).get()),
+    );
+    final classMap = {
+      for (final d in classDocs)
+        if (d.exists) d.id: ClassModel.fromDoc(d),
+    };
+
+    // 3. Fetch all sessions for each class and find this student's record.
+    final results = <Map<String, dynamic>>[];
+    for (final enrollment in enrollments) {
+      final sessionsSnap = await _db
+          .collection('sessions')
+          .where('classId', isEqualTo: enrollment.classId)
+          .get();
+
+      for (final doc in sessionsSnap.docs) {
+        final session = AttendanceSession.fromDoc(doc);
+        final record = session.records
+            .cast<AttendanceRecord?>()
+            .firstWhere((r) => r?.studentId == enrollment.id,
+                orElse: () => null);
+        final cls = classMap[enrollment.classId];
+        results.add({
+          'session': session,
+          'record': record,
+          'className': cls?.name ?? 'Unknown class',
+          'classCode': cls?.code ?? '',
+        });
+      }
+    }
+
+    results.sort((a, b) => (b['session'] as AttendanceSession)
+        .date
+        .compareTo((a['session'] as AttendanceSession).date));
+    return results;
+  }
+
+  /// Summary stats for a student: attendance %, avg focus, enrolled class count.
+  Future<Map<String, dynamic>> studentStats(String regNumber) async {
+    final history = await studentAttendanceHistory(regNumber);
+    if (history.isEmpty) {
+      return {'attendancePct': 0.0, 'avgFocus': 0.0, 'courseCount': 0};
+    }
+    final withRecord =
+        history.where((h) => h['record'] != null).toList();
+    final presentCount =
+        withRecord.where((h) => (h['record'] as AttendanceRecord).present).length;
+    final attendancePct =
+        withRecord.isEmpty ? 0.0 : presentCount / withRecord.length;
+    final focusValues = withRecord
+        .where((h) => (h['record'] as AttendanceRecord).present)
+        .map((h) => (h['record'] as AttendanceRecord).focusScore)
+        .toList();
+    final avgFocus =
+        focusValues.isEmpty ? 0.0 : focusValues.reduce((a, b) => a + b) / focusValues.length;
+
+    // Count distinct classes.
+    final enrollSnap = await _db
+        .collection('students')
+        .where('registrationNumber', isEqualTo: regNumber)
+        .get();
+    final courseCount = enrollSnap.docs.length;
+
+    return {
+      'attendancePct': attendancePct,
+      'avgFocus': avgFocus,
+      'courseCount': courseCount,
+    };
+  }
 }
