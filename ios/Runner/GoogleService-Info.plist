@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>212773196919-efl2b2n9uk7jskh8q7jblh4dh6e8hu7a.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.212773196919-efl2b2n9uk7jskh8q7jblh4dh6e8hu7a</string>
+	<key>API_KEY</key>
+	<string>AIzaSyA7MLtXiVGa4sJgohuxjC2ZVObz_jt1ew8</string>
+	<key>GCM_SENDER_ID</key>
+	<string>212773196919</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.smartAttend</string>
+	<key>PROJECT_ID</key>
+	<string>smartattend-873ba</string>
+	<key>STORAGE_BUCKET</key>
+	<string>smartattend-873ba.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:212773196919:ios:8e554b7af56919c1d0e272</string>
+</dict>
+</plist>

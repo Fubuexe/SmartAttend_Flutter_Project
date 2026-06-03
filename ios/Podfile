@@ -1,0 +1,72 @@
+platform :ios, '14.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+flutter_ios_podfile_setup
+target 'Runner' do
+  # Use static linkage so Firebase ObjC pods are not compiled as strict
+  # dynamic-framework modules. This avoids the Xcode 26 "non-modular header
+  # inside framework module" error from firebase_auth's #import <Firebase/Firebase.h>.
+  use_frameworks! :linkage => :static
+  use_modular_headers!
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+post_install do |installer|
+  # ── Xcode 26 fix ───────────────────────────────────────────────────────────
+  # firebase_auth's ObjC wrapper headers all include <Firebase/Firebase.h>
+  # which is a plain header with no module map (non-modular).  Xcode 26
+  # enforces this strictly: any framework module that transitively pulls in a
+  # non-modular header fails to compile.
+  #
+  # Clearing firebase_auth.modulemap removes the module definition entirely.
+  # The plugin registrant imports it with plain ObjC (#import <firebase_auth/...>)
+  # so it continues to work; no Dart/Swift code imports the module directly.
+  fa_modulemap = File.join(__dir__, 'Pods/Target Support Files/firebase_auth/firebase_auth.modulemap')
+  File.write(fa_modulemap, '') if File.exist?(fa_modulemap)
+
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['SWIFT_VERSION'] = '5.0'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+    end
+    if target.name == 'BoringSSL-GRPC'
+      target.source_build_phase.files.each do |file|
+        if file.settings && file.settings['COMPILER_FLAGS']
+          flags = file.settings['COMPILER_FLAGS']
+          flags = flags.gsub('-GCC_WARN_INHIBIT_ALL_WARNINGS', '')
+          flags = flags.gsub(/\s+/, ' ').strip
+          file.settings['COMPILER_FLAGS'] = flags
+        end
+      end
+    end
+  end
+  ['gRPC-Core', 'gRPC-C++'].each do |grpc_pod|
+    basic_seq = File.join(__dir__, "Pods/#{grpc_pod}/src/core/lib/promise/detail/basic_seq.h")
+    if File.exist?(basic_seq)
+      content = File.read(basic_seq)
+      patched = content.gsub('Traits::template CallSeqFactory', 'Traits::CallSeqFactory')
+      File.write(basic_seq, patched) if patched != content
+    end
+  end
+end

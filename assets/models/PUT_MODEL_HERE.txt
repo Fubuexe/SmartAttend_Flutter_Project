@@ -1,0 +1,10 @@
+Place your face-recognition model here and name it exactly:
+
+    mobilefacenet.tflite
+
+- Input: 112 x 112 RGB
+- Output: 192-d embedding (change embeddingSize in
+  lib/services/face_recognition_service.dart if your model differs)
+
+Without this file the app still runs (face detection + focus only);
+recognition (student names) is simply skipped.

@@ -1,0 +1,10 @@
+.dart_tool/
+.idea/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.packages
+ios/Pods/
+android/.gradle/
+# google-services.json and GoogleService-Info.plist are intentionally included
